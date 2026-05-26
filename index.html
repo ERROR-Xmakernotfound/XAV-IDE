@@ -76,11 +76,9 @@
             margin: 0;
             padding: 10px;
             font-size: 14px;
-            overflow: hidden;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            z-index: 1;
-            pointer-events: none;
+            overflow: auto;              /* FIX */
+            white-space: pre;           /* FIX (NO wrap) */
+            line-height: 1.4em;         /* IMPORTANT */
         }
 
         /* ===== SYNTAX COLORS ===== */
