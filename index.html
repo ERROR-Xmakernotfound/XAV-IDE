@@ -205,15 +205,15 @@ function highlight(text, bracketA = -1, bracketB = -1) {
     }
     
 
-    text = text.replace(/"((?:[^"\\]|\\.)*)"/g, m => {
-        strings.push(m);
-        return `__STR${s++}__`;
-    });
+    text = text.replace(/"((?:[^"\/]|\/["\/])*)"/g, (m) => {
+    strings.push(m);
+    return `__STR${s++}__`;
+});
 
-    text = text.replace(/'((?:[^'\\]|\\.)*)'/g, m => {
-        strings.push(m);
-        return `__STR${s++}__`;
-    });
+text = text.replace(/'((?:[^'\/]|\/["\/])*)'/g, (m) => {
+    strings.push(m);
+    return `__STR${s++}__`;
+});
 
     text = text.replace(/\/\*[\s\S]*?\*\//g, m => {
         comments.push(m);
@@ -279,20 +279,47 @@ function highlight(text, bracketA = -1, bracketB = -1) {
 /* UI */
 const editor = document.getElementById("editor");
 editor.addEventListener("keydown", (e) => {
+    const TAB_SIZE = 4;
+
     if (e.key === "Tab") {
         e.preventDefault();
 
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
 
-        const spaces = "    "; // 4 spaces
+        const spaces = " ".repeat(TAB_SIZE);
 
         editor.value =
             editor.value.substring(0, start) +
             spaces +
             editor.value.substring(end);
 
-        editor.selectionStart = editor.selectionEnd = start + 4;
+        editor.selectionStart = editor.selectionEnd = start + TAB_SIZE;
+
+        updateHighlight();
+    }
+
+    if (e.key === "Backspace") {
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+
+        // only run when no selection
+        if (start === end) {
+            const before = editor.value.substring(0, start);
+
+            // check last 4 characters
+            if (before.endsWith(" ".repeat(4))) {
+                e.preventDefault();
+
+                editor.value =
+                    editor.value.substring(0, start - 4) +
+                    editor.value.substring(end);
+
+                editor.selectionStart = editor.selectionEnd = start - 4;
+
+                updateHighlight();
+            }
+        }
 
         updateHighlight();
     }
