@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>XAV++ IDE</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #0f172a;
+            color: white;
+            font-family: Consolas;
+            display: flex;
+            height: 100vh;
+        }
+
+        #left {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #1f2937;
+        }
+
+        #controls {
+            padding: 10px;
+            background: #111827;
+        }
+
+        button {
+            background: #2563eb;
+            border: none;
+            padding: 8px 12px;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-right: 5px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        #right {
+            width: 50%;
+            background: #0a0f1c;
+            padding: 10px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+
+        /* ===== EDITOR WRAPPER ===== */
+        #editorWrap {
+            position: relative;
+            flex: 1;
+        }
+
+        #editorWrap textarea {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            color: transparent;
+            caret-color: white;
+            border: none;
+            padding: 10px;
+            font-size: 14px;
+            outline: none;
+            resize: none;
+            z-index: 2;
+            white-space: pre;
+        }
+
+        #editorWrap pre {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 10px;
+            font-size: 14px;
+            overflow: hidden;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* ===== SYNTAX COLORS ===== */
+        .kw { color: #00b7ff; font-weight: bold; }
+        .str { color: #f4d35e; }
+        .num { color: #72efdd; }
+        .com { color: #5c677d; }
+        .fn  { color: #ff66c4; }
+        .mo { color: #ffb86b; }  /* monomod */
+        .po { color: #bd93f9; }  /* polymod */
+    </style>
+</head>
+
+<body>
+
+<div id="left">
+
+    <div id="controls">
+        <button onclick="encodeCode()">Encode</button>
+        <button onclick="clearOut()">Clear</button>
+        <button onclick="copyOutput()">Copy</button>
+    </div>
+
+    <div id="editorWrap">
+        <pre id="highlight"></pre>
+        <textarea id="editor"
+            oninput="updateHighlight()"
+            onscroll="syncScroll()">print("hello world");</textarea>
+    </div>
+
+</div>
+
+<div id="right"></div>
+
+<!-- your encoder -->
+<script src="scratch_encoder.js"></script>
+
+<script>
+const codec = new EncodeDecode();
+
+/* =========================
+   XAV++ SYNTAX LIST
+========================= */
+
+const KEYWORDS = [
+    "if","elif","else",
+    "while","exec","clone",
+    "func","loop",
+    "link","upload","output",
+    "return","break","continue",
+    "var","list","gvar",
+];
+
+const BUILTINS = [
+    "$mouse_x","$mouse_y","$answer",
+    "$x_pos","$y_pos","$direction",
+    "$CloneID","$returned","$namespace"
+];
+
+
+/* =========================
+   HIGHLIGHT ENGINE
+========================= */
+
+function escapeHtml(text) {
+    return text
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;");
+}
+
+function highlight(text) {
+
+    // =========================
+    // STEP 1: escape HTML
+    // =========================
+    text = text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+
+    const strings = [];
+    const comments = [];
+
+    let strIndex = 0;
+    let comIndex = 0;
+
+    // =========================
+    // STEP 2: PROTECT STRINGS
+    // =========================
+    text = text.replace(/"((?:[^"\\]|\\.)*)"/g, (m) => {
+        strings.push(m);
+        return `__STR${strIndex++}__`;
+    });
+
+    text = text.replace(/'((?:[^'\\]|\\.)*)'/g, (m) => {
+        strings.push(m);
+        return `__STR${strIndex++}__`;
+    });
+
+    // =========================
+    // STEP 3: PROTECT COMMENTS (IMPORTANT FIX)
+    // =========================
+    text = text.replace(/\/\*[\s\S]*?\*\//g, (m) => {
+        comments.push(m);
+        return `__COM${comIndex++}__`;
+    });
+
+    text = text.replace(/\/\/.*/g, (m) => {
+        comments.push(m);
+        return `__COM${comIndex++}__`;
+    });
+
+    // =========================
+    // STEP 4: SYNTAX HIGHLIGHT (ONLY CODE NOW)
+    // =========================
+
+    // polymod
+    text = text.replace(
+        /\b(\d+|[a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
+        (m, obj, method) =>
+            `<span class="po">${obj}</span>.<span class="po">${method}</span>(`
+    );
+
+    // monomod
+    text = text.replace(
+        /\b(\d+|[a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b/g,
+        (m, obj, prop) =>
+            `<span class="mo">${obj}</span>.<span class="mo">${prop}</span>`
+    );
+
+    // functions
+    text = text.replace(
+        /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
+        (m, name) => `<span class="fn">${name}</span>(`
+    );
+
+    // keywords
+    const KEYWORDS = ["if","elif","else","while","exec","clone","func","loop","return","break","continue","var","list","gvar"];
+
+    for (const kw of KEYWORDS) {
+        text = text.replace(new RegExp("\\b" + kw + "\\b", "g"), `<span class="kw">${kw}</span>`);
+    }
+
+    // numbers
+    text = text.replace(/\b\d+\b/g, m => `<span class="num">${m}</span>`);
+
+    // =========================
+    // STEP 5: RESTORE COMMENTS (LAST!)
+    // =========================
+    text = text.replace(/__COM(\d+)__/g, (m, i) => {
+        return `<span class="com">${comments[i]}</span>`;
+    });
+
+    // =========================
+    // STEP 6: RESTORE STRINGS (LAST!)
+    // =========================
+    text = text.replace(/__STR(\d+)__/g, (m, i) => {
+        return `<span class="str">${strings[i]}</span>`;
+    });
+
+    return text;
+}
+
+/* =========================
+   UI SYNC
+========================= */
+
+function updateHighlight() {
+    const editor = document.getElementById("editor");
+    const hl = document.getElementById("highlight");
+
+    hl.innerHTML = highlight(editor.value);
+}
+
+function syncScroll() {
+    const editor = document.getElementById("editor");
+    const hl = document.getElementById("highlight");
+
+    hl.scrollTop = editor.scrollTop;
+    hl.scrollLeft = editor.scrollLeft;
+}
+
+/* =========================
+   ENCODER OUTPUT
+========================= */
+
+function encodeCode() {
+
+    const input = document.getElementById("editor").value;
+
+    const encoded = codec.encodeLines(input);
+
+    document.getElementById("right").textContent =
+        encoded;
+}
+
+function clearOut() {
+    document.getElementById("right").textContent = "";
+}
+
+/* =========================
+   COPY BUTTON
+========================= */
+
+function copyOutput() {
+
+    const output = document.getElementById("right").textContent;
+    if (!output) return;
+
+    navigator.clipboard.writeText(output)
+        .then(() => alert("Copied!"));
+}
+
+/* init */
+updateHighlight();
+</script>
+
+</body>
+</html>
