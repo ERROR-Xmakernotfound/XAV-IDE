@@ -15,7 +15,7 @@ body {
 
 /* LEFT = BIGGEST AREA */
 #left {
-    flex: 2;              /* 👈 makes it dominant */
+    flex: 2;
     display: flex;
     flex-direction: column;
     border-right: 2px solid #1f2937;
@@ -23,7 +23,7 @@ body {
 
 /* OUTPUT = SMALLER */
 #right {
-    flex: 2;              /* 👈 smaller than editor */
+    flex: 2;
     background: #0a0f1c;
     padding: 10px;
     overflow: auto;
@@ -106,15 +106,22 @@ button {
     pointer-events: none;
     overflow: auto;
 }
+.bracket-match {
+    background: #ffff66;
+    color: black;
+    border-radius: 3px;
+}
 
 /* syntax */
-.kw { color: #00b7ff; font-weight: bold; }
-.str { color: #f4d35e; }
+.kw { color: #77b7ff; font-weight: bold; }
+.str { color: #55aa55; }
 .num { color: #72efdd; }
 .com { color: #5c677d; }
-.fn  { color: #ff66c4; }
+.fn  { color: #ffaa55; }
 .mo  { color: #ffb86b; }
 .po  { color: #bd93f9; }
+.bool { color: #ee2222; font-weight: bold; }
+.builtin {color: #66ffcc; font-weight: bold;}
 
 </style>
 </head>
@@ -156,6 +163,20 @@ const KEYWORDS = [
     "func","loop","return","break","continue",
     "var","list","gvar"
 ];
+const BUILTINS = [
+    "$mouse_x",
+    "$mouse_y",
+    "$answer",
+    "$x_pos",
+    "$y_pos",
+    "$direction",
+    "$CloneID",
+    "$input#",
+    "$returned",
+    "$namespace",
+    "$in#",
+    "$is_pressed",
+];
 
 function escapeHtml(text) {
     return text
@@ -163,8 +184,92 @@ function escapeHtml(text) {
         .replaceAll("<","&lt;")
         .replaceAll(">","&gt;");
 }
+function findMatch(str, pos, open, close) {
+    let stack = 0;
 
-function highlight(text) {
+    for (let i = pos; i < str.length; i++) {
+        if (str[i] === open) stack++;
+        else if (str[i] === close) {
+            stack--;
+            if (stack === 0) return i;
+        }
+    }
+    return -1;
+}
+function highlightBrackets() {
+
+    const editor = document.getElementById("editor");
+    const value = editor.value;
+    const pos = editor.selectionStart;
+
+    const pairs = {
+        "(": ")",
+        "{": "}",
+        "[": "]"
+    };
+
+    const pairsRev = {
+        ")": "(",
+        "}": "{",
+        "]": "["
+    };
+
+    const current = value[pos - 1];
+
+    let matchIndex = -1;
+
+    // FORWARD SEARCH
+    if (pairs[current]) {
+
+        let stack = 1;
+
+        for (let i = pos; i < value.length; i++) {
+
+            if (value[i] === current) {
+                stack++;
+            }
+
+            else if (value[i] === pairs[current]) {
+
+                stack--;
+
+                if (stack === 0) {
+                    matchIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    // BACKWARD SEARCH
+    else if (pairsRev[current]) {
+
+        let stack = 1;
+
+        for (let i = pos - 2; i >= 0; i--) {
+
+            if (value[i] === current) {
+                stack++;
+            }
+
+            else if (value[i] === pairsRev[current]) {
+
+                stack--;
+
+                if (stack === 0) {
+                    matchIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    document.getElementById("highlight").innerHTML =
+    highlight(value, pos - 1, matchIndex);
+}
+function highlight(text, bracketA = -1, bracketB = -1) {
+
+    const original = text;
 
     text = escapeHtml(text);
 
@@ -172,6 +277,12 @@ function highlight(text) {
     const comments = [];
 
     let s = 0, c = 0;
+
+    function visualizeIndent(text) {
+        return text.replace(/^( +)/gm, (m) => {
+            return m.replace(/ /g, "·");
+        });
+    }
 
     text = text.replace(/"((?:[^"\\]|\\.)*)"/g, m => {
         strings.push(m);
@@ -205,31 +316,80 @@ function highlight(text) {
 
     text = text.replace(
         /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
-        (m,n) => KEYWORDS.includes(n) ? m : `<span class="fn">${n}</span>(`
+        (m,n) => KEYWORDS.includes(n)
+            ? m
+            : `<span class="fn">${n}</span>(`
     );
 
     for (const kw of KEYWORDS) {
-        text = text.replace(new RegExp("\\b"+kw+"\\b","g"),
-            `<span class="kw">${kw}</span>`);
+        text = text.replace(
+            new RegExp("\\b"+kw+"\\b","g"),
+            `<span class="kw">${kw}</span>`
+        );
     }
 
-    text = text.replace(/\b\d+\b/g, m => `<span class="num">${m}</span>`);
+    text = text.replace(
+        /\b\d+\b/g,
+        m => `<span class="num">${m}</span>`
+    );
+
+    text = text.replace(
+        /\b(true|false)\b/g,
+        m => `<span class="bool">${m}</span>`
+    );
 
     text = text.replace(/__COM(\d+)__/g,(m,i)=>
-        `<span class="com">${comments[i]}</span>`);
+        `<span class="com">${comments[i]}</span>`
+    );
 
     text = text.replace(/__STR(\d+)__/g,(m,i)=>
-        `<span class="str">${strings[i]}</span>`);
+        `<span class="str">${strings[i]}</span>`
+    );
+
+    text = visualizeIndent(text);
+
+    // BRACKET HIGHLIGHT LAST
+    if (bracketA !== -1 && bracketB !== -1) {
+
+        let plainIndex = 0;
+        let result = "";
+
+        for (let i = 0; i < text.length; i++) {
+
+            if (text[i] === "<") {
+
+                while (i < text.length && text[i] !== ">") {
+                    result += text[i];
+                    i++;
+                }
+
+                result += ">";
+                continue;
+            }
+
+            if (plainIndex === bracketA || plainIndex === bracketB) {
+                result += `<span class="bracket-match">${text[i]}</span>`;
+            } else {
+                result += text[i];
+            }
+
+            plainIndex++;
+        }
+
+        text = result;
+    }
 
     return text;
 }
-
 /* UI */
+const editor = document.getElementById("editor");
+
 function updateHighlight() {
     document.getElementById("highlight").innerHTML =
-        highlight(document.getElementById("editor").value);
+        highlight(editor.value);
 }
-
+editor.addEventListener("keyup", highlightBrackets);
+editor.addEventListener("click", highlightBrackets);
 document.getElementById("editor").addEventListener("input", updateHighlight);
 
 /* buttons */
