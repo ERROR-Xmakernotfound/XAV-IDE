@@ -6,22 +6,54 @@
 <style>
 body {
     margin: 0;
+    height: 100vh;
+    display: flex;
     background: #0f172a;
     color: white;
     font-family: Consolas, monospace;
-    display: flex;
-    height: 100vh;
 }
 
-/* LEFT PANEL */
+/* LEFT = BIGGEST AREA */
 #left {
-    width: 50%;
+    flex: 2;              /* 👈 makes it dominant */
     display: flex;
     flex-direction: column;
     border-right: 2px solid #1f2937;
 }
 
-/* CONTROLS */
+/* OUTPUT = SMALLER */
+#right {
+    flex: 2;              /* 👈 smaller than editor */
+    background: #0a0f1c;
+    padding: 10px;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+
+/* FLOATING RUNTIME */
+#runtime {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+
+    width: 700px;
+    height: 600px;
+
+    background: #000;
+    border: 2px solid #1f2937;
+    border-radius: 8px;
+
+    overflow: hidden;
+    z-index: 9999;
+}
+
+#runtime iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* controls */
 #controls {
     padding: 10px;
     background: #111827;
@@ -37,26 +69,12 @@ button {
     margin-right: 5px;
 }
 
-/* RIGHT OUTPUT */
-#right {
-    width: 50%;
-    background: #0a0f1c;
-    padding: 10px;
-    overflow: auto;
-    white-space: pre-wrap;
-}
-
-/* =========================
-   EDITOR FIX (IMPORTANT)
-========================= */
-
+/* editor */
 #editorWrap {
     position: relative;
     flex: 1;
-    overflow: hidden;
 }
 
-/* BOTH LAYERS MUST MATCH PERFECTLY */
 #editorWrap textarea,
 #editorWrap pre {
     position: absolute;
@@ -68,34 +86,28 @@ button {
     font-size: 14px;
     line-height: 20px;
 
-    tab-size: 4;
     white-space: pre;
-
+    tab-size: 4;
     box-sizing: border-box;
 }
 
-/* INPUT */
 #editorWrap textarea {
     background: transparent;
-    color: transparent;        /* hides text */
-    caret-color: white;        /* keeps cursor visible */
+    color: transparent;
+    caret-color: white;
     border: none;
     outline: none;
     resize: none;
-
     z-index: 2;
-    overflow: auto;
 }
 
-/* HIGHLIGHT LAYER */
 #highlight {
     z-index: 1;
     pointer-events: none;
     overflow: auto;
-    color: white;
 }
 
-/* SYNTAX COLORS */
+/* syntax */
 .kw { color: #00b7ff; font-weight: bold; }
 .str { color: #f4d35e; }
 .num { color: #72efdd; }
@@ -109,25 +121,36 @@ button {
 
 <body>
 
+<!-- EDITOR -->
 <div id="left">
     <div id="controls">
-        <button onclick="encodeCode()">Encode</button>
         <button onclick="clearOut()">Clear</button>
-        <button onclick="copyOutput()">Copy</button>
+        <button onclick="encodeCode();copyOutput();alert('encoded output copied!');">Encode and Copy</button>
     </div>
 
     <div id="editorWrap">
         <pre id="highlight"></pre>
         <textarea id="editor">print("hello world");</textarea>
     </div>
+
 </div>
 
+<!-- OUTPUT -->
 <div id="right"></div>
+
+<!-- FLOATING RUNTIME -->
+<div id="runtime">
+    <iframe src="https://turbowarp.org/1297244237/embed"
+        allowfullscreen>
+    </iframe>
+</div>
+
 
 <script src="scratch_encoder.js"></script>
 
 <script>
 const codec = new EncodeDecode();
+
 const KEYWORDS = [
     "if","elif","else","while","exec","clone",
     "func","loop","return","break","continue",
@@ -141,10 +164,6 @@ function escapeHtml(text) {
         .replaceAll(">","&gt;");
 }
 
-/* =========================
-   HIGHLIGHT ENGINE
-========================= */
-
 function highlight(text) {
 
     text = escapeHtml(text);
@@ -154,7 +173,6 @@ function highlight(text) {
 
     let s = 0, c = 0;
 
-    // STRINGS
     text = text.replace(/"((?:[^"\\]|\\.)*)"/g, m => {
         strings.push(m);
         return `__STR${s++}__`;
@@ -165,7 +183,6 @@ function highlight(text) {
         return `__STR${s++}__`;
     });
 
-    // COMMENTS
     text = text.replace(/\/\*[\s\S]*?\*\//g, m => {
         comments.push(m);
         return `__COM${c++}__`;
@@ -176,116 +193,59 @@ function highlight(text) {
         return `__COM${c++}__`;
     });
 
-    // POLYMOD
     text = text.replace(
         /\b(\d+|[a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
-        (m, obj, method) =>
-            `<span class="po">${obj}</span>.<span class="po">${method}</span>(`
+        (m,o,mth) => `<span class="po">${o}</span>.<span class="po">${mth}</span>(`
     );
 
-    // MONOMOD
     text = text.replace(
         /\b(\d+|[a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b/g,
-        (m, obj, prop) =>
-            `<span class="mo">${obj}</span>.<span class="mo">${prop}</span>`
+        (m,o,p) => `<span class="mo">${o}</span>.<span class="mo">${p}</span>`
     );
 
-    // FUNCTIONS
     text = text.replace(
         /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
-        (m, name) => {
-            if (KEYWORDS.includes(name)) return m;
-            return `<span class="fn">${name}</span>(`;
-        }
+        (m,n) => KEYWORDS.includes(n) ? m : `<span class="fn">${n}</span>(`
     );
 
-    // KEYWORDS
     for (const kw of KEYWORDS) {
-        text = text.replace(
-            new RegExp("\\b" + kw + "\\b","g"),
-            `<span class="kw">${kw}</span>`
-        );
+        text = text.replace(new RegExp("\\b"+kw+"\\b","g"),
+            `<span class="kw">${kw}</span>`);
     }
 
-    // NUMBERS
     text = text.replace(/\b\d+\b/g, m => `<span class="num">${m}</span>`);
 
-    // RESTORE
-    text = text.replace(/__COM(\d+)__/g, (m,i) =>
-        `<span class="com">${comments[i]}</span>`
-    );
+    text = text.replace(/__COM(\d+)__/g,(m,i)=>
+        `<span class="com">${comments[i]}</span>`);
 
-    text = text.replace(/__STR(\d+)__/g, (m,i) =>
-        `<span class="str">${strings[i]}</span>`
-    );
+    text = text.replace(/__STR(\d+)__/g,(m,i)=>
+        `<span class="str">${strings[i]}</span>`);
 
     return text;
 }
 
-/* =========================
-   UI
-========================= */
-
+/* UI */
 function updateHighlight() {
-    const ed = document.getElementById("editor");
-    const hl = document.getElementById("highlight");
-    hl.innerHTML = highlight(ed.value);
+    document.getElementById("highlight").innerHTML =
+        highlight(document.getElementById("editor").value);
 }
 
-/* KEEP SCROLL PERFECTLY IN SYNC */
-const editor = document.getElementById("editor");
-const highlightBox = document.getElementById("highlight");
+document.getElementById("editor").addEventListener("input", updateHighlight);
 
-editor.addEventListener("scroll", () => {
-    highlightBox.scrollTop = editor.scrollTop;
-    highlightBox.scrollLeft = editor.scrollLeft;
-});
-
-/* TAB SUPPORT */
-editor.addEventListener("keydown", function(e) {
-    if (e.key === "Tab") {
-        e.preventDefault();
-
-        const start = this.selectionStart;
-        const end = this.selectionEnd;
-
-        const tab = "    ";
-
-        this.value =
-            this.value.substring(0, start) +
-            tab +
-            this.value.substring(end);
-
-        this.selectionStart = this.selectionEnd = start + tab.length;
-
-        updateHighlight();
-    }
-});
-
+/* buttons */
 window.encodeCode = function () {
-    const input = document.getElementById("editor").value;
-
-    if (!codec) return;
-
-    const encoded = codec.encodeLines(input);
-    document.getElementById("right").textContent = encoded;
+    document.getElementById("right").textContent =
+        codec.encodeLines(document.getElementById("editor").value);
 };
 
-window.clearOut = function () {
+window.clearOut = () =>
     document.getElementById("right").textContent = "";
-};
 
-window.copyOutput = function () {
-    const output = document.getElementById("right").textContent;
-    if (!output) return;
+window.copyOutput = () =>
+    navigator.clipboard.writeText(
+        document.getElementById("right").textContent
+    );
 
-    navigator.clipboard.writeText(output);
-};
-
-/* LIVE UPDATE */
-editor.addEventListener("input", updateHighlight);
-
-/* INIT */
 updateHighlight();
 </script>
 
