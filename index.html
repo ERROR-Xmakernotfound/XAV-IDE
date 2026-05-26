@@ -1,3 +1,10 @@
+<!--
+const KEYWORDS = [
+    "if","elif","else","while","exec","clone",
+    "func","loop","clone","return","break","continue",
+    "var","list","gvar","upload","output","link"
+];
+-->
 <!DOCTYPE html>
 <html>
 <head>
@@ -181,9 +188,9 @@ const BUILTINS = [
 
 function escapeHtml(text) {
     return text
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;");
+        //.replaceAll("&","&amp;")
+        //.replaceAll("<","&lt;")
+        //.replaceAll(">","&gt;");
 }
 function findMatch(str, pos, open, close) {
     let stack = 0;
@@ -271,6 +278,7 @@ function highlightBrackets() {
 function highlight(text, bracketA = -1, bracketB = -1) {
 
     const original = text;
+    const raw = text;
 
     text = escapeHtml(text);
 
@@ -284,6 +292,7 @@ function highlight(text, bracketA = -1, bracketB = -1) {
             return m.replace(/ /g, "·");
         });
     }
+    
 
     text = text.replace(/"((?:[^"\\]|\\.)*)"/g, m => {
         strings.push(m);
