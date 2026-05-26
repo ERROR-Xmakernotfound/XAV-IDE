@@ -52,15 +52,35 @@
             position: relative;
             flex: 1;
         }
-
-    #editorWrap textarea,
-    #editorWrap pre {
+        #highlight span {
+            white-space: pre;
+        }
+        #highlight {
+            overflow: auto;
+        }
+        
+        #editorWrap textarea,
+        #editorWrap pre {
         font-family: Consolas, monospace;
         font-size: 14px;
         line-height: 1.4em;
         letter-spacing: 0px;
         tab-size: 4;
         white-space: pre;
+        }
+        #editorWrap pre {
+            position: absolute;
+            inset: 0;
+            margin: 0;
+            padding: 10px;
+            overflow: auto;   /* MUST match textarea */
+        }
+        #editorWrap textarea {
+            position: absolute;
+            inset: 0;
+            margin: 0;
+            padding: 10px;
+            overflow: auto;
         }
 
         /* ===== SYNTAX COLORS ===== */
