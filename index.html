@@ -125,6 +125,7 @@ button {
 .po  { color: #bd93f9; }
 .bool { color: #ee2222; font-weight: bold; }
 .builtin {color: #66ffcc; font-weight: bold;}
+.err {background: rgba(255,0,0,0.18);border-bottom: 2px solid #ff4444;}
 
 </style>
 </head>
@@ -186,6 +187,182 @@ function escapeHtml(text) {
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;");
+}
+function analyzeErrors(text) {
+
+    const errors = [];
+
+    const stack = [];
+
+    const pairs = {
+        "(": ")",
+        "{": "}",
+        "[": "]"
+    };
+
+    let inString = false;
+    let stringStart = -1;
+
+    // =========================
+    // BRACKET + STRING CHECKING
+    // =========================
+
+    for (let i = 0; i < text.length; i++) {
+
+        const ch = text[i];
+        const next = text[i + 1];
+
+        // XAV++ escapes:
+        // /" = literal "
+        // // = literal /
+        if (ch === "/" && (next === '"' || next === "/")) {
+            i++;
+            continue;
+        }
+
+        // STRING HANDLING
+        if (ch === '"') {
+
+            if (!inString) {
+                inString = true;
+                stringStart = i;
+            } else {
+                inString = false;
+            }
+
+            continue;
+        }
+
+        // ignore syntax inside strings
+        if (inString) continue;
+
+        // OPENING BRACKETS
+        if (pairs[ch]) {
+
+            stack.push({
+                char: ch,
+                pos: i
+            });
+
+            continue;
+        }
+
+        // CLOSING BRACKETS
+        if (Object.values(pairs).includes(ch)) {
+
+            const last = stack.pop();
+
+            // nothing to match
+            if (!last) {
+
+                errors.push({
+                    type: "bracket",
+                    pos: i,
+                    length: 1,
+                    msg: `Unexpected '${ch}'`
+                });
+
+                continue;
+            }
+
+            // wrong bracket type
+            if (pairs[last.char] !== ch) {
+
+                errors.push({
+                    type: "bracket",
+                    pos: i,
+                    length: 1,
+                    msg: `Expected '${pairs[last.char]}' but got '${ch}'`
+                });
+            }
+        }
+    }
+
+    // UNCLOSED BRACKETS
+    for (const item of stack) {
+
+        errors.push({
+            type: "bracket",
+            pos: item.pos,
+            length: 1,
+            msg: `Unclosed '${item.char}'`
+        });
+    }
+
+    // UNCLOSED STRING
+    if (inString) {
+
+        errors.push({
+            type: "string",
+            pos: stringStart,
+            length: 1,
+            msg: "Unclosed string"
+        });
+    }
+
+    // =========================
+    // SEMICOLON CHECKING
+    // =========================
+
+    const lines = text.split("\n");
+
+    let currentPos = 0;
+    let blockDepth = 0;
+
+    lines.forEach((line) => {
+
+        const t = line.trim();
+
+        // skip blank lines
+        if (!t) {
+            currentPos += line.length + 1;
+            return;
+        }
+
+        // skip single-line comments
+        if (t.startsWith("//")) {
+            currentPos += line.length + 1;
+            return;
+        }
+
+        // skip multiline comment markers
+        if (
+            t.startsWith("/*") ||
+            t.endsWith("*/")
+        ) {
+            currentPos += line.length + 1;
+            return;
+        }
+
+        // count blocks
+        for (const ch of line) {
+
+            if (ch === "{") blockDepth++;
+            if (ch === "}") blockDepth--;
+        }
+
+        // opening block line
+        const opensBlock = t.endsWith("{");
+
+        // only require semicolon
+        // if not mid-block
+        if (!opensBlock && blockDepth <= 0) {
+
+            if (!t.endsWith(";")) {
+
+                errors.push({
+                    type: "semicolon",
+                    pos: currentPos + line.length - 1,
+                    length: 1,
+                    msg: "Missing semicolon"
+                });
+            }
+        }
+
+        currentPos += line.length + 1;
+    });
+
+    return errors;
 }
 function highlight(text, bracketA = -1, bracketB = -1) {
 
@@ -272,16 +449,55 @@ text = text.replace(/'((?:[^'\/]|\/["\/])*)'/g, (m) => {
 
     text = visualizeIndent(text);
 
+    const errors = analyzeErrors(original);
 
+let plainIndex = 0;
+let result = "";
+
+for (let i = 0; i < text.length; i++) {
+
+    // preserve HTML tags
+    if (text[i] === "<") {
+
+        while (i < text.length && text[i] !== ">") {
+            result += text[i];
+            i++;
+        }
+
+        result += ">";
+        continue;
+    }
+
+    const err = errors.find(e =>
+        plainIndex >= e.pos &&
+        plainIndex < e.pos + e.length
+    );
+
+    if (err) {
+        result += `<span class="err">${text[i]}</span>`;
+    } else {
+        result += text[i];
+    }
+
+    plainIndex++;
+}
+
+text = result;
 
     return text;
 }
 /* UI */
 const editor = document.getElementById("editor");
 editor.addEventListener("keydown", (e) => {
+
     const TAB_SIZE = 4;
 
+    // =====================
+    // TAB
+    // =====================
+
     if (e.key === "Tab") {
+
         e.preventDefault();
 
         const start = editor.selectionStart;
@@ -294,32 +510,95 @@ editor.addEventListener("keydown", (e) => {
             spaces +
             editor.value.substring(end);
 
-        editor.selectionStart = editor.selectionEnd = start + TAB_SIZE;
+        editor.selectionStart =
+        editor.selectionEnd =
+            start + TAB_SIZE;
 
         updateHighlight();
     }
 
+    // =====================
+    // BACKSPACE TAB DELETE
+    // =====================
+
     if (e.key === "Backspace") {
+
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
 
-        // only run when no selection
         if (start === end) {
-            const before = editor.value.substring(0, start);
 
-            // check last 4 characters
-            if (before.endsWith(" ".repeat(4))) {
+            const before =
+                editor.value.substring(0, start);
+
+            if (
+                before.endsWith(
+                    " ".repeat(TAB_SIZE)
+                )
+            ) {
+
                 e.preventDefault();
 
                 editor.value =
-                    editor.value.substring(0, start - 4) +
+                    editor.value.substring(0, start - TAB_SIZE) +
                     editor.value.substring(end);
 
-                editor.selectionStart = editor.selectionEnd = start - 4;
+                editor.selectionStart =
+                editor.selectionEnd =
+                    start - TAB_SIZE;
 
                 updateHighlight();
             }
         }
+    }
+
+    // =====================
+    // AUTO INDENT
+    // =====================
+
+    if (e.key === "Enter") {
+
+        e.preventDefault();
+
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+
+        const beforeCursor =
+            editor.value.substring(0, start);
+
+        const lineStart =
+            beforeCursor.lastIndexOf("\n") + 1;
+
+        const currentLine =
+            beforeCursor.substring(lineStart);
+
+        // existing indent
+        const indent =
+            currentLine.match(/^ */)[0];
+
+        // add extra indent after {
+        let extra = "";
+
+        if (currentLine.trim().endsWith("{")) {
+
+            extra =
+                " ".repeat(TAB_SIZE);
+        }
+
+        const insert =
+            "\n" + indent + extra;
+
+        editor.value =
+            editor.value.substring(0, start) +
+            insert +
+            editor.value.substring(end);
+
+        const newPos =
+            start + insert.length;
+
+        editor.selectionStart =
+        editor.selectionEnd =
+            newPos;
 
         updateHighlight();
     }
