@@ -488,6 +488,17 @@ text = result;
 }
 /* UI */
 const editor = document.getElementById("editor");
+editor.addEventListener("scroll", () => {
+
+    const highlight =
+        document.getElementById("highlight");
+
+    highlight.scrollTop =
+        editor.scrollTop;
+
+    highlight.scrollLeft =
+        editor.scrollLeft;
+});
 editor.addEventListener("keydown", (e) => {
 
     const TAB_SIZE = 4;
