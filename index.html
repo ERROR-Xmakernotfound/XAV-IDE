@@ -21,7 +21,7 @@ body {
     font-family: Consolas, monospace;
 }
 
-/* LEFT = BIGGEST AREA */
+/* LEFT PANEL */
 #left {
     flex: 2;
     display: flex;
@@ -29,10 +29,11 @@ body {
     border-right: 2px solid #1f2937;
 }
 
-/* OUTPUT = SMALLER */
+/* OUTPUT PANEL */
 #right {
     flex: 2;
     background: #0a0f1c;
+    color: #000000;
     padding: 10px;
     overflow: auto;
     white-space: pre-wrap;
@@ -41,10 +42,10 @@ body {
 /* FLOATING RUNTIME */
 #runtime {
     position: fixed;
-    bottom: 10px;
+    bottom: 5px;
     right: 10px;
 
-    width: 700px;
+    width: 637px;
     height: 600px;
 
     background: #000;
@@ -61,12 +62,27 @@ body {
     border: none;
 }
 
-/* controls */
+/* CONTROLS */
 #controls {
-    padding: 10px;
-    background: #111827;
+    padding: 12px 12px;
+    margin: 10px 10px 6px 10px;
+    background: #252947;
+    border-radius: 6px;
+    border-bottom: 4px solid #5f5957;
 }
+#editorMask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
 
+    height: 12px;
+
+    background: #111827;
+    z-index: 5;
+
+    pointer-events: none;
+}
 button {
     background: #2563eb;
     border: none;
@@ -77,10 +93,17 @@ button {
     margin-right: 5px;
 }
 
-/* editor */
+/* EDITOR WRAPPER */
 #editorWrap {
     position: relative;
     flex: 1;
+    overflow: hidden;
+}
+#editorContainer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
 }
 
 #editorWrap textarea,
@@ -94,12 +117,16 @@ button {
     font-size: 14px;
     line-height: 20px;
 
-    white-space: pre;
     tab-size: 4;
     box-sizing: border-box;
+
+    white-space: pre;   /* MUST be identical */
+    overflow-wrap: normal;
+    word-wrap: normal;
 }
 
-#editorWrap textarea {
+/* INPUT LAYER */
+#editor {
     background: transparent;
     color: transparent;
     caret-color: white;
@@ -107,35 +134,37 @@ button {
     outline: none;
     resize: none;
     z-index: 2;
-}
 
-#editor {
     overflow: auto;
-    white-space: pre;
+    white-space: pre;   /* MUST match highlight exactly */
 }
 
+/* OUTPUT LAYER */
 #highlight {
     z-index: 1;
     pointer-events: none;
 
     overflow: hidden;
-
-    white-space: pre;
-
-    color: white;
+    white-space: pre;   /* CRITICAL FIX */
 }
+
+/* FULL SIZE LOCK */
 #editor,
 #highlight {
     width: 100%;
     height: 100%;
 }
-#editor,
 #highlight {
-    overflow-wrap: normal;
-    word-wrap: normal;
+    z-index: 1;
+    pointer-events: none;
+
+    white-space: pre;
+    overflow: visible;
+
+    will-change: transform;
 }
 
-/* syntax */
+/* SYNTAX COLORS */
 .kw { color: #77b7ff; font-weight: bold; }
 .str { color: #55aa55; }
 .num { color: #72efdd; }
@@ -144,9 +173,9 @@ button {
 .mo  { color: #ffb86b; }
 .po  { color: #bd93f9; }
 .bool { color: #ee2222; font-weight: bold; }
-.builtin {color: #66ffcc; font-weight: bold;}
-.err {background: rgba(255,0,0,0.18);border-bottom: 2px solid #ff4444;}
-
+.builtin { color: #66ffcc; font-weight: bold; }
+.err { background: rgba(255,0,0,0.18); border-bottom: 2px solid #ff4444; }
+.paren { color: #ffffff; }
 </style>
 </head>
 
@@ -154,12 +183,17 @@ button {
 
 <!-- EDITOR -->
 <div id="left">
+
     <div id="controls">
         <button onclick="clearOut()">Clear</button>
-        <button onclick="encodeCode();copyOutput();alert('encoded output copied!');">Encode and Copy</button>
+        <button onclick="encodeCode();copyOutput();alert('encoded output copied!');">
+            Encode and Copy
+        </button>
     </div>
 
     <div id="editorWrap">
+        <div id="editorMask"></div>
+
         <pre id="highlight"></pre>
         <textarea id="editor">print("hello world");</textarea>
     </div>
@@ -430,12 +464,14 @@ text = text.replace(/'((?:[^'\/]|\/["\/])*)'/g, (m) => {
         (m,o,p) => `<span class="mo">${o}</span>.<span class="mo">${p}</span>`
     );
 
-    text = text.replace(
-        /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
-        (m,n) => KEYWORDS.includes(n)
-            ? m
-            : `<span class="fn">${n}</span>(`
-    );
+text = text.replace(
+    /\b([a-zA-Z_][a-zA-Z0-9_]*)\(/g,
+    (m, name) => {
+        if (KEYWORDS.includes(name)) return m;
+
+        return `<span class="fn">${name}</span><span class="po">(</span>`;
+    }
+);
 
     for (const kw of KEYWORDS) {
         text = text.replace(
@@ -461,7 +497,8 @@ text = text.replace(/'((?:[^'\/]|\/["\/])*)'/g, (m) => {
         `<span class="str">${strings[i]}</span>`
     );
 
-
+text = text.replace(/\(/g, `<span class="paren">(</span>`);
+text = text.replace(/\)/g, `<span class="paren">)</span>`);
 
 const errors = analyzeErrors(original);
 let errorIndex = 0;
@@ -496,22 +533,20 @@ for (let i = 0; i < text.length; i++) {
 
     rawIndex++;
 }
-
+text = text.replace(/(^|\n)(?=\n)/g, "$1\u200B");
+text = result.split("\n").map(line => {
+    if (line === "") return "<div></div>";
+    return line;
+}).join("\n");
 text = result;
 return text;
 }
-/* UI */
 const editor = document.getElementById("editor");
+const highlightBox = document.getElementById("highlight");
+
 editor.addEventListener("scroll", () => {
-
-    const highlight =
-        document.getElementById("highlight");
-
-    highlight.scrollTop =
-        editor.scrollTop;
-
-    highlight.scrollLeft =
-        editor.scrollLeft;
+    highlightBox.style.transform =
+        `translate(${-editor.scrollLeft}px, ${-editor.scrollTop}px)`;
 });
 editor.addEventListener("keydown", (e) => {
 
@@ -629,8 +664,8 @@ editor.addEventListener("keydown", (e) => {
     }
 });
 function updateHighlight() {
-    document.getElementById("highlight").innerHTML =
-        highlight(editor.value);
+    highlightBox.innerHTML =
+    highlight(editor.value);
 }
 editor.addEventListener("input", updateHighlight);
 
