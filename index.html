@@ -465,6 +465,7 @@ function highlight(text) {
 
         const ch = text[i];
         const next = text[i + 1];
+        
 
         // =========================================================
         // IMPORTANT FIX: COMMENT MODE OVERRIDES EVERYTHING
@@ -543,6 +544,27 @@ function highlight(text) {
             stringChar = ch;
             result += `<span class="str">${ch}</span>`;
             i++;
+            continue;
+        }
+                // =========================
+        // BUILTINS ($variables)
+        // =========================
+
+        if (ch === "$") {
+
+            flushBuffer(); // important: don't mix with words
+
+            let start = i;
+            let name = "$";
+            i++;
+
+            while (i < text.length &&
+                   /[a-zA-Z0-9_#]/.test(text[i])) {
+                name += text[i];
+                i++;
+            }
+
+            result += `<span class="builtin">${escapeHtml(name)}</span>`;
             continue;
         }
 
