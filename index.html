@@ -510,13 +510,45 @@ for (let i = 0; i < text.length; i++) {
 
     const char = text[i];
 
-    // skip HTML tags safely
+    // Skip HTML tags
     if (char === "<") {
+
         while (i < text.length && text[i] !== ">") {
             result += text[i];
             i++;
         }
+
         result += ">";
+        continue;
+    }
+
+    // Skip HTML entities like &lt;
+    if (char === "&") {
+
+        let entity = char;
+
+        while (i + 1 < text.length && text[i + 1] !== ";") {
+            i++;
+            entity += text[i];
+        }
+
+        if (i + 1 < text.length) {
+            i++;
+            entity += text[i];
+        }
+
+        const err = errors.find(e =>
+            rawIndex >= e.pos &&
+            rawIndex < e.pos + e.length
+        );
+
+        if (err) {
+            result += `<span class="err">${entity}</span>`;
+        } else {
+            result += entity;
+        }
+
+        rawIndex++;
         continue;
     }
 
