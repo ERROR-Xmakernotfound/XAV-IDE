@@ -523,34 +523,28 @@ for (let i = 0; i < text.length; i++) {
     }
 
     // Skip HTML entities like &lt;
-    if (char === "&") {
+// Skip HTML entities like &amp; &lt; &gt;
+if (char === "&") {
 
-        let entity = char;
+    let entity = char;
 
-        while (i + 1 < text.length && text[i + 1] !== ";") {
-            i++;
-            entity += text[i];
-        }
-
-        if (i + 1 < text.length) {
-            i++;
-            entity += text[i];
-        }
-
-        const err = errors.find(e =>
-            rawIndex >= e.pos &&
-            rawIndex < e.pos + e.length
-        );
-
-        if (err) {
-            result += `<span class="err">${entity}</span>`;
-        } else {
-            result += entity;
-        }
-
-        rawIndex++;
-        continue;
+    while (i + 1 < text.length && text[i + 1] !== ";") {
+        i++;
+        entity += text[i];
     }
+
+    // include ;
+    if (i + 1 < text.length) {
+        i++;
+        entity += text[i];
+    }
+
+    // DO NOT error-highlight entities
+    result += entity;
+
+    rawIndex++;
+    continue;
+}
 
     const err = errors.find(e =>
         rawIndex >= e.pos &&
