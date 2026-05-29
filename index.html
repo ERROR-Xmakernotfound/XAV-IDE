@@ -254,8 +254,11 @@ function analyzeErrors(text) {
         "[": "]"
     };
 
-    let inString = false;
-    let stringStart = -1;
+let inString = false;
+let stringStart = -1;
+
+let inLineComment = false;
+let inBlockComment = false;
 
     // =========================
     // BRACKET + STRING CHECKING
@@ -418,154 +421,233 @@ function analyzeErrors(text) {
 
     return errors;
 }
-function highlight(text, bracketA = -1, bracketB = -1) {
+function highlight(text) {
 
-    const original = text;
+    let result = "";
+    let i = 0;
 
-    text = escapeHtml(text);
+    let inString = false;
+    let stringChar = null;
 
-    const strings = [];
-    const comments = [];
+    let inLineComment = false;
+    let inBlockComment = false;
 
-    let s = 0, c = 0;
-    
+    const isKeyword = (w) => KEYWORDS.includes(w);
 
-    text = text.replace(/"((?:[^"\/]|\/["\/])*)"/g, (m) => {
-    strings.push(m);
-    return `__STR${s++}__`;
+    let buffer = "";
+
+    function flushBuffer() {
+
+        if (!buffer) return;
+
+        let out = buffer;
+
+        if (/^\d+$/.test(out)) {
+            result += `<span class="num">${out}</span>`;
+        }
+
+        else if (/^\$[a-zA-Z_][a-zA-Z0-9_]*$/.test(out)) {
+            result += `<span class="builtin">${out}</span>`;
+        }
+
+        else if (isKeyword(out)) {
+            result += `<span class="kw">${out}</span>`;
+        }
+
+        else {
+            result += escapeHtml(out);
+        }
+
+        buffer = "";
+    }
+
+    while (i < text.length) {
+
+        const ch = text[i];
+        const next = text[i + 1];
+
+        // =========================================================
+        // IMPORTANT FIX: COMMENT MODE OVERRIDES EVERYTHING
+        // =========================================================
+
+        if (inLineComment) {
+
+            result += `<span class="com">${escapeHtml(ch)}</span>`;
+
+            if (ch === "\n") {
+                inLineComment = false;
+            }
+
+            i++;
+            continue;
+        }
+
+        if (inBlockComment) {
+
+            if (ch === "*" && next === "/") {
+                result += `<span class="com">*/</span>`;
+                inBlockComment = false;
+                i += 2;
+                continue;
+            }
+
+            result += `<span class="com">${escapeHtml(ch)}</span>`;
+            i++;
+            continue;
+        }
+
+        // =========================================================
+        // STRING MODE (ONLY IF NOT IN COMMENT)
+        // =========================================================
+
+        if (inString) {
+
+            result += `<span class="str">${escapeHtml(ch)}</span>`;
+
+            if (ch === stringChar) {
+                inString = false;
+                stringChar = null;
+            }
+
+            i++;
+            continue;
+        }
+
+        // =========================================================
+        // START COMMENT (highest priority)
+        // =========================================================
+
+        if (ch === "/" && next === "/") {
+            flushBuffer();
+            inLineComment = true;
+            result += `<span class="com">//</span>`;
+            i += 2;
+            continue;
+        }
+
+        if (ch === "/" && next === "*") {
+            flushBuffer();
+            inBlockComment = true;
+            result += `<span class="com">/*</span>`;
+            i += 2;
+            continue;
+        }
+
+        // =========================================================
+        // START STRING
+        // =========================================================
+
+        if (ch === '"' || ch === "'") {
+            flushBuffer();
+            inString = true;
+            stringChar = ch;
+            result += `<span class="str">${ch}</span>`;
+            i++;
+            continue;
+        }
+
+        // =========================================================
+        // WORDS (keywords, functions, builtins)
+        // =========================================================
+
+        if (/[a-zA-Z_]/.test(ch)) {
+
+            buffer += ch;
+            i++;
+
+            while (i < text.length &&
+                   /[a-zA-Z0-9_$]/.test(text[i])) {
+                buffer += text[i];
+                i++;
+            }
+
+            // function detection
+            if (text[i] === "(" && !isKeyword(buffer)) {
+                result += `<span class="fn">${buffer}</span>`;
+                buffer = "";
+                continue;
+            }
+
+            flushBuffer();
+            continue;
+        }
+
+        // =========================================================
+        // NUMBERS
+        // =========================================================
+
+        if (/\d/.test(ch)) {
+
+            buffer += ch;
+            i++;
+
+            while (i < text.length && /\d/.test(text[i])) {
+                buffer += text[i];
+                i++;
+            }
+
+            flushBuffer();
+            continue;
+        }
+        
+
+        // =========================================================
+        // PARENTHESIS
+        // =========================================================
+
+        if (ch === "(" || ch === ")") {
+            flushBuffer();
+            result += `<span class="paren">${ch}</span>`;
+            i++;
+            continue;
+        }
+
+        // =========================================================
+        // DEFAULT CHARACTER
+        // =========================================================
+
+        flushBuffer();
+        result += escapeHtml(ch);
+        i++;
+    }
+
+    flushBuffer();
+// =========================
+// DOT SYSTEM (SAFE VERSION)
+// =========================
+
+// protect existing spans first
+const spans = [];
+let s = 0;
+
+result = result.replace(/<span[^>]*>.*?<\/span>/g, m => {
+    spans.push(m);
+    return `__SPAN${s++}__`;
 });
 
-text = text.replace(/'((?:[^'\/]|\/["\/])*)'/g, (m) => {
-    strings.push(m);
-    return `__STR${s++}__`;
-});
-
-    text = text.replace(/\/\*[\s\S]*?\*\//g, m => {
-        comments.push(m);
-        return `__COM${c++}__`;
-    });
-
-    text = text.replace(/\/\/.*/g, m => {
-        comments.push(m);
-        return `__COM${c++}__`;
-    });
-       text = text.replace(
-		/\$[a-zA-Z_][a-zA-Z0-9_]*/g,
-		(match) => `<span class="builtin">${match}</span>`
-	);
-
-    text = text.replace(
-        /\b(\d+|[a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
-        (m,o,mth) => `<span class="po">${o}</span>.<span class="po">${mth}</span>(`
-    );
-
-    text = text.replace(
-        /\b(\d+|[a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b/g,
-        (m,o,p) => `<span class="mo">${o}</span>.<span class="mo">${p}</span>`
-    );
-
-text = text.replace(
-    /\b([a-zA-Z_][a-zA-Z0-9_]*)\(/g,
-    (m, name) => {
-        if (KEYWORDS.includes(name)) return m;
-
-        return `<span class="fn">${name}</span><span class="po">(</span>`;
+// -------------------------
+// POLY FIRST
+// -------------------------
+result = result.replace(
+    /\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
+    (m, obj, prop) => {
+        return `<span class="po">${obj}.${prop}</span><span class="paren">(</span>`;
     }
 );
 
-    for (const kw of KEYWORDS) {
-        text = text.replace(
-            new RegExp("\\b"+kw+"\\b","g"),
-            `<span class="kw">${kw}</span>`
-        );
+// -------------------------
+// MONO SECOND
+// -------------------------
+result = result.replace(
+    /\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b/g,
+    (m, obj, prop) => {
+        return `<span class="mo">${obj}.${prop}</span>`;
     }
-    text = text.replace(
-        /\b\d+\b/g,
-        m => `<span class="num">${m}</span>`
-    );
+);
 
-    text = text.replace(
-        /\b(true|false)\b/g,
-        m => `<span class="bool">${m}</span>`
-    );
-
-    text = text.replace(/__COM(\d+)__/g,(m,i)=>
-        `<span class="com">${comments[i]}</span>`
-    );
-
-    text = text.replace(/__STR(\d+)__/g,(m,i)=>
-        `<span class="str">${strings[i]}</span>`
-    );
-
-text = text.replace(/\(/g, `<span class="paren">(</span>`);
-text = text.replace(/\)/g, `<span class="paren">)</span>`);
-
-const errors = analyzeErrors(original);
-let errorIndex = 0;
-
-let result = "";
-let rawIndex = 0;
-
-for (let i = 0; i < text.length; i++) {
-
-    const char = text[i];
-
-    // Skip HTML tags
-    if (char === "<") {
-
-        while (i < text.length && text[i] !== ">") {
-            result += text[i];
-            i++;
-        }
-
-        result += ">";
-        continue;
-    }
-
-    // Skip HTML entities like &lt;
-// Skip HTML entities like &amp; &lt; &gt;
-if (char === "&") {
-
-    let entity = char;
-
-    while (i + 1 < text.length && text[i + 1] !== ";") {
-        i++;
-        entity += text[i];
-    }
-
-    // include ;
-    if (i + 1 < text.length) {
-        i++;
-        entity += text[i];
-    }
-
-    // DO NOT error-highlight entities
-    result += entity;
-
-    rawIndex++;
-    continue;
-}
-
-    const err = errors.find(e =>
-        rawIndex >= e.pos &&
-        rawIndex < e.pos + e.length
-    );
-
-    if (err) {
-        result += `<span class="err">${char}</span>`;
-    } else {
-        result += char;
-    }
-
-    rawIndex++;
-}
-text = text.replace(/(^|\n)(?=\n)/g, "$1\u200B");
-text = result.split("\n").map(line => {
-    if (line === "") return "<div></div>";
-    return line;
-}).join("\n");
-text = result;
-return text;
+// restore spans
+result = result.replace(/__SPAN(\d+)__/g, (m, i) => spans[i]);
+    return result;
 }
 const editor = document.getElementById("editor");
 const highlightBox = document.getElementById("highlight");
