@@ -176,6 +176,9 @@ button {
 .builtin { color: #66ffcc; font-weight: bold; }
 .err { background: rgba(255,0,0,0.18); border-bottom: 2px solid #ff4444; }
 .paren { color: #ffffff; }
+.indent-guide {
+    border-left: 1px solid #334155;
+}
 </style>
 </head>
 
@@ -666,7 +669,15 @@ result = result.replace(
         return `<span class="mo">${obj}.${prop}</span>`;
     }
 );
-
+result = result.replace(
+    /^( +)/gm,
+    (match) => {
+        return match.replace(
+            / /g,
+            '<span class="indent">·</span>'
+        );
+    }
+);
 // restore spans
 result = result.replace(/__SPAN(\d+)__/g, (m, i) => spans[i]);
     return result;
