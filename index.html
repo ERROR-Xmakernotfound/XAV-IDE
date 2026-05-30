@@ -452,6 +452,9 @@ function highlight(text) {
         else if (/^\$[a-zA-Z_][a-zA-Z0-9_]*$/.test(out)) {
             result += `<span class="builtin">${out}</span>`;
         }
+        else if (out === "true" || out === "false") {
+    result += `<span class="bool">${out}</span>`;
+}
 
         else if (isKeyword(out)) {
             result += `<span class="kw">${out}</span>`;
