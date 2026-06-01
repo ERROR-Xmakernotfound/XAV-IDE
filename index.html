@@ -192,6 +192,8 @@ button {
         <button onclick="encodeCode();copyOutput();alert('encoded output copied!');">
             Encode and Copy
         </button>
+        <button onclick="exportSource()">Export Source</button>
+        <button onclick="exportEncoded()">Export Encoded</button>
     </div>
 
     <div id="editorWrap">
@@ -818,7 +820,42 @@ window.encodeCode = function () {
     document.getElementById("right").textContent =
         codec.encodeLines(document.getElementById("editor").value);
 };
+window.exportSource = function () {
 
+    let name = prompt("Enter file name:", "source");
+
+    if (!name) return; // cancel guard
+
+    const text = editor.value;
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name + ".xavpp";
+    a.click();
+
+    URL.revokeObjectURL(url);
+};
+window.exportEncoded = function () {
+
+    let name = prompt("Enter file name:", "source");
+
+    if (!name) return;
+
+    const encoded = codec.encodeLines(editor.value);
+
+    const blob = new Blob([encoded], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name + ".xavbin";
+    a.click();
+
+    URL.revokeObjectURL(url);
+};
 window.clearOut = () =>
     document.getElementById("right").textContent = "";
 
