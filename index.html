@@ -192,8 +192,8 @@ button {
         <button onclick="encodeCode();copyOutput();alert('encoded output copied!');">
             Encode and Copy
         </button>
-        <button onclick="exportSource()">Export Source</button>
-        <button onclick="exportEncoded()">Export Encoded</button>
+        <button onclick="importEncoded()">Import XAV bin</button>
+        <button onclick="exportEncoded()">Export XAV bin</button>
     </div>
 
     <div id="editorWrap">
@@ -204,7 +204,12 @@ button {
     </div>
 
 </div>
-
+<input
+    type="file"
+    id="encodedFileInput"
+    accept=".xavbin"
+    style="display:none;"
+>
 <!-- OUTPUT -->
 <div id="right"></div>
 
@@ -689,7 +694,6 @@ result = result.replace(/__SPAN(\d+)__/g, (m, i) => spans[i]);
 }
 const editor = document.getElementById("editor");
 const highlightBox = document.getElementById("highlight");
-
 editor.addEventListener("scroll", () => {
     highlightBox.style.transform =
         `translate(${-editor.scrollLeft}px, ${-editor.scrollTop}px)`;
@@ -820,24 +824,6 @@ window.encodeCode = function () {
     document.getElementById("right").textContent =
         codec.encodeLines(document.getElementById("editor").value);
 };
-window.exportSource = function () {
-
-    let name = prompt("Enter file name:", "source");
-
-    if (!name) return; // cancel guard
-
-    const text = editor.value;
-
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name + ".xavpp";
-    a.click();
-
-    URL.revokeObjectURL(url);
-};
 window.exportEncoded = function () {
 
     let name = prompt("Enter file name:", "source");
@@ -855,6 +841,53 @@ window.exportEncoded = function () {
     a.click();
 
     URL.revokeObjectURL(url);
+};
+// =========================
+// IMPORT XAV BIN
+// =========================
+
+window.importEncoded = function () {
+
+	const input = document.createElement("input");
+
+	input.type = "file";
+	input.accept = ".xavbin";
+
+	input.onchange = function (e) {
+
+		const file = e.target.files[0];
+
+		if (!file) return;
+
+		const reader = new FileReader();
+
+		reader.onload = function () {
+
+			try {
+
+				const encoded = reader.result;
+
+				const decoded =
+					codec.decodeLines(encoded);
+
+				editor.value = decoded;
+
+				updateHighlight();
+
+			} catch (err) {
+
+				console.error(err);
+
+				alert(
+					"Failed to import XAV binary."
+				);
+			}
+		};
+
+		reader.readAsText(file);
+	};
+
+	input.click();
 };
 window.clearOut = () =>
     document.getElementById("right").textContent = "";
