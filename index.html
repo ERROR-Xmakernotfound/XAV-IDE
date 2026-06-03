@@ -514,18 +514,31 @@ function highlight(text) {
         // STRING MODE (ONLY IF NOT IN COMMENT)
         // =========================================================
 
-        if (inString) {
+if (inString) {
 
-            result += `<span class="str">${escapeHtml(ch)}</span>`;
+	// XAV++ escapes
+	if (
+		ch === "/" &&
+		(next === '"' || next === "/")
+	) {
 
-            if (ch === stringChar) {
-                inString = false;
-                stringChar = null;
-            }
+		result +=
+			`<span class="str">${escapeHtml(ch + next)}</span>`;
 
-            i++;
-            continue;
-        }
+		i += 2;
+		continue;
+	}
+
+	result += `<span class="str">${escapeHtml(ch)}</span>`;
+
+	if (ch === stringChar) {
+		inString = false;
+		stringChar = null;
+	}
+
+	i++;
+	continue;
+}
 
         // =========================================================
         // START COMMENT (highest priority)
