@@ -11,14 +11,17 @@ const KEYWORDS = [
 <title>XAV++ IDE</title>
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="icon" type="image/png" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 body {
     margin: 0;
     height: 100vh;
     display: flex;
-    background: #0f172a;
+    background: #1C1C1C;
     color: white;
-    font-family: Consolas, monospace;
+    font-family: "JetBrains Mono";
 }
 
 /* LEFT PANEL */
@@ -66,7 +69,7 @@ body {
 #controls {
     padding: 12px 12px;
     margin: 10px 10px 6px 10px;
-    background: #252947;
+    background: #271118;
     border-radius: 6px;
     border-bottom: 4px solid #5f5957;
 }
@@ -78,19 +81,20 @@ body {
 
     height: 12px;
 
-    background: #111827;
+    background: #1C1C1C;
     z-index: 5;
 
     pointer-events: none;
 }
 button {
-    background: #2563eb;
+    background: #eb2311;
     border: none;
     padding: 8px 12px;
     color: white;
     cursor: pointer;
     border-radius: 5px;
     margin-right: 5px;
+    font-family: "JetBrains Mono";
 }
 
 /* EDITOR WRAPPER */
@@ -113,7 +117,7 @@ button {
     margin: 0;
     padding: 10px;
 
-    font-family: Consolas, monospace;
+    font-family: "JetBrains Mono";
     font-size: 14px;
     line-height: 20px;
 
@@ -165,20 +169,21 @@ button {
 }
 
 /* SYNTAX COLORS */
-.kw { color: #77b7ff; font-weight: bold; }
+.kw { color: #DD5555; font-weight: bold; }
 .str { color: #55aa55; }
 .num { color: #72efdd; }
 .com { color: #5c677d; }
-.fn  { color: #ffaa55; }
-.mo  { color: #ffb86b; }
-.po  { color: #bd93f9; }
+.fn  { color: #ff6611; }
+.mo  { color: #ff5500; }
+.po  { color: #aa55ff; }
 .bool { color: #ee2222; font-weight: bold; }
 .builtin { color: #66ffcc; font-weight: bold; }
 .err { background: rgba(255,0,0,0.18); border-bottom: 2px solid #ff4444; }
 .paren { color: #ffffff; }
-.indent-guide {
-    border-left: 1px solid #334155;
-}
+
+.indent {color: #ffffff;}
+
+.indent-major {color: #ffffff;}
 </style>
 </head>
 
@@ -252,185 +257,6 @@ function escapeHtml(text) {
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;");
 }
-function analyzeErrors(text) {
-
-    const errors = [];
-
-    const stack = [];
-
-    const pairs = {
-        "(": ")",
-        "{": "}",
-        "[": "]"
-    };
-
-let inString = false;
-let stringStart = -1;
-
-let inLineComment = false;
-let inBlockComment = false;
-
-    // =========================
-    // BRACKET + STRING CHECKING
-    // =========================
-
-    for (let i = 0; i < text.length; i++) {
-
-        const ch = text[i];
-        const next = text[i + 1];
-
-        // XAV++ escapes:
-        // /" = literal "
-        // // = literal /
-        if (ch === "/" && (next === '"' || next === "/")) {
-            i++;
-            continue;
-        }
-
-        // STRING HANDLING
-        if (ch === '"') {
-
-            if (!inString) {
-                inString = true;
-                stringStart = i;
-            } else {
-                inString = false;
-            }
-
-            continue;
-        }
-
-        // ignore syntax inside strings
-        if (inString) continue;
-
-        // OPENING BRACKETS
-        if (pairs[ch]) {
-
-            stack.push({
-                char: ch,
-                pos: i
-            });
-
-            continue;
-        }
-
-        // CLOSING BRACKETS
-        if (Object.values(pairs).includes(ch)) {
-
-            const last = stack.pop();
-
-            // nothing to match
-            if (!last) {
-
-                errors.push({
-                    type: "bracket",
-                    pos: i,
-                    length: 1,
-                    msg: `Unexpected '${ch}'`
-                });
-
-                continue;
-            }
-
-            // wrong bracket type
-            if (pairs[last.char] !== ch) {
-
-                errors.push({
-                    type: "bracket",
-                    pos: i,
-                    length: 1,
-                    msg: `Expected '${pairs[last.char]}' but got '${ch}'`
-                });
-            }
-        }
-    }
-
-    // UNCLOSED BRACKETS
-    for (const item of stack) {
-
-        errors.push({
-            type: "bracket",
-            pos: item.pos,
-            length: 1,
-            msg: `Unclosed '${item.char}'`
-        });
-    }
-
-    // UNCLOSED STRING
-    if (inString) {
-
-        errors.push({
-            type: "string",
-            pos: stringStart,
-            length: 1,
-            msg: "Unclosed string"
-        });
-    }
-
-    // =========================
-    // SEMICOLON CHECKING
-    // =========================
-
-    const lines = text.split("\n");
-
-    let currentPos = 0;
-    let blockDepth = 0;
-
-    lines.forEach((line) => {
-
-        const t = line.trim();
-
-        // skip blank lines
-        if (!t) {
-            currentPos += line.length + 1;
-            return;
-        }
-
-        // skip single-line comments
-        if (t.startsWith("//")) {
-            currentPos += line.length + 1;
-            return;
-        }
-
-        // skip multiline comment markers
-        if (
-            t.startsWith("/*") ||
-            t.endsWith("*/")
-        ) {
-            currentPos += line.length + 1;
-            return;
-        }
-
-        // count blocks
-        for (const ch of line) {
-
-            if (ch === "{") blockDepth++;
-            if (ch === "}") blockDepth--;
-        }
-
-        // opening block line
-        const opensBlock = t.endsWith("{");
-
-        // only require semicolon
-        // if not mid-block
-        if (!opensBlock && blockDepth <= 0) {
-
-            if (!t.endsWith(";")) {
-
-                errors.push({
-                    type: "semicolon",
-                    pos: currentPos + line.length - 1,
-                    length: 1,
-                    msg: "Missing semicolon"
-                });
-            }
-        }
-
-        currentPos += line.length + 1;
-    });
-
-    return errors;
-}
 function highlight(text) {
 
     let result = "";
@@ -484,17 +310,22 @@ function highlight(text) {
         // IMPORTANT FIX: COMMENT MODE OVERRIDES EVERYTHING
         // =========================================================
 
-        if (inLineComment) {
+if (inLineComment) {
 
-            result += `<span class="com">${escapeHtml(ch)}</span>`;
+    if (ch === "\n") {
 
-            if (ch === "\n") {
-                inLineComment = false;
-            }
+        result += "\n";   // keep newline plain
 
-            i++;
-            continue;
-        }
+        inLineComment = false;
+        i++;
+        continue;
+    }
+
+    result += `<span class="com">${escapeHtml(ch)}</span>`;
+
+    i++;
+    continue;
+}
 
         if (inBlockComment) {
 
@@ -609,12 +440,33 @@ if (inString) {
                 i++;
             }
 
-            // function detection
-            if (text[i] === "(" && !isKeyword(buffer)) {
-                result += `<span class="fn">${buffer}</span>`;
-                buffer = "";
-                continue;
-            }
+// function detection
+const start = i - buffer.length;
+
+if (
+	text[i] === "(" &&
+	!isKeyword(buffer)
+) {
+
+	let j = start - 1;
+
+	while (j >= 0 && /\s/.test(text[j])) {
+		j--;
+	}
+
+	if (j >= 0 && text[j] === ".") {
+
+		result += `<span class="po">${buffer}</span>`;
+
+		buffer = "";
+		continue;
+	}
+
+	result += `<span class="fn">${buffer}</span>`;
+
+	buffer = "";
+	continue;
+}
 
             flushBuffer();
             continue;
@@ -674,16 +526,6 @@ result = result.replace(/<span[^>]*>.*?<\/span>/g, m => {
 });
 
 // -------------------------
-// POLY FIRST
-// -------------------------
-result = result.replace(
-    /\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
-    (m, obj, prop) => {
-        return `<span class="po">${obj}.${prop}</span><span class="paren">(</span>`;
-    }
-);
-
-// -------------------------
 // MONO SECOND
 // -------------------------
 result = result.replace(
@@ -692,13 +534,31 @@ result = result.replace(
         return `<span class="mo">${obj}.${prop}</span>`;
     }
 );
+// -------------------------
+// POLY FIRST
+// -------------------------
+result = result.replace(
+    /\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
+    (m, obj, prop) => {
+        return `<span class="po">${obj}.${prop}</span><span class="paren">(</span>`;
+    }
+);
 result = result.replace(
     /^( +)/gm,
     (match) => {
-        return match.replace(
-            / /g,
-            '<span class="indent">·</span>'
-        );
+
+        let out = "";
+
+        for (let i = 0; i < match.length; i++) {
+
+            if ((i + 1) % 4 === 0) {
+                out += '<span class="indent indent-major">|</span>';
+            } else {
+                out += '<span class="indent"> </span>';
+            }
+        }
+
+        return out;
     }
 );
 // restore spans
