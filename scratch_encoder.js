@@ -14,7 +14,25 @@ class EncodeDecode {
 
             let i = 0;
             let foundIndex = -1;
+			
+			if (char === "\uFD3F") {
 
+	let j = 0;
+
+	while (j < this.encode_map.length) {
+
+		if (this.encode_map[j] === "\u25A1") {
+			foundIndex = j + 1;
+			break;
+		}
+
+		j++;
+	}
+
+	encoded += String(foundIndex);
+	continue;
+}
+			
             while (i < this.encode_map.length) {
 
                 if (this.encode_map[i] === char) {
