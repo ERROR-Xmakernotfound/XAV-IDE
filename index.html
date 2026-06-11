@@ -199,6 +199,7 @@ button {
         </button>
         <button onclick="importEncoded()">Import XAV bin</button>
         <button onclick="exportEncoded()">Export XAV bin</button>
+        <button onclick="toggleXAVMode()">XAV++/XAV-- Mode</button>
     </div>
 
     <div id="editorWrap">
@@ -230,11 +231,32 @@ button {
 
 <script>
 const codec = new EncodeDecode();
+window.isXAVMinus = false;
+window.xavMode = "XAV++";
 
-const KEYWORDS = [
+window.toggleXAVMode = function () {
+
+    window.xavMode =
+        window.xavMode === "XAV++" ? "XAV--" : "XAV++";
+
+    updateHighlight();
+
+    const id = RUNTIME_PROJECTS[window.xavMode];
+
+    runtimeFrame.src =
+        "https://turbowarp.org/" + id + "/embed";
+
+    console.log(runtimeFrame.src);
+};
+const KEYWORDS_XAVPP = [
     "if","elif","else","while","exec","clone",
     "func","loop","clone","return","break","continue",
-    "var","list","gvar","upload","output","link"
+    "var","list","gvar","output","link"
+];
+const KEYWORDS_XAVMM = [
+    "if","elif","else","while","exec","clone",
+    "func","loop","clone","return","break","continue",
+    "local","global","array","gvar","output","link"
 ];
 const BUILTINS = [
     "$mouse_x",
@@ -250,6 +272,16 @@ const BUILTINS = [
     "$in#",
     "$is_pressed",
 ];
+const RUNTIME_PROJECTS = {
+    "XAV++": "1297244237",
+    "XAV--": "1330755400"
+};
+function getKeywordsActive() {
+    return window.xavMode === "XAV--"
+        ? KEYWORDS_XAVMM
+        : KEYWORDS_XAVPP;
+}
+const runtimeFrame = document.querySelector("#runtime iframe");
 
 function escapeHtml(text) {
     return text
@@ -267,8 +299,11 @@ function highlight(text) {
 
     let inLineComment = false;
     let inBlockComment = false;
+    
+const KEYWORDS_ACTIVE =
+    window.isXAVMinus ? KEYWORDS_XAVMM : KEYWORDS_XAVPP;
 
-    const isKeyword = (w) => KEYWORDS.includes(w);
+const isKeyword = (w) => getKeywordsActive().includes(w);
 
     let buffer = "";
 
