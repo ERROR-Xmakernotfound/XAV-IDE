@@ -256,7 +256,8 @@ const KEYWORDS_XAVPP = [
 const KEYWORDS_XAVMM = [
     "if","elif","else","while","exec","clone",
     "func","loop","clone","return","break","continue",
-    "local","global","array","omnipresent","output","link","inherit"
+    "local","global","array","omnipresent","output","link",
+    "inherit","mutate"
 ];
 const BUILTINS = [
     "$mouse_x",
@@ -320,7 +321,7 @@ const isKeyword = (w) => getKeywordsActive().includes(w);
         else if (/^\$[a-zA-Z_][a-zA-Z0-9_]*$/.test(out)) {
             result += `<span class="builtin">${out}</span>`;
         }
-        else if (out === "true" || out === "false") {
+        else if (out === "true" || out === "false" || out === "null") {
     result += `<span class="bool">${out}</span>`;
 }
 
