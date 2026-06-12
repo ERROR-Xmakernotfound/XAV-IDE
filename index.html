@@ -247,6 +247,11 @@ window.toggleXAVMode = function () {
 
     runtimeFrame.src =
         "https://turbowarp.org/" + id + "/embed";
+if (window.xavMode === "XAV++") {
+alert("XAV++ Mode active!");
+} else if (window.xavMode == "XAV--"){
+alert("XAV-- Mode active!");
+}
 
     console.log(runtimeFrame.src);
 };
