@@ -179,7 +179,8 @@ button {
 .op  { color: #ffaa00; }
 .var  { color: #ff6600; }
 .bool { color: #ee2222; font-weight: bold; }
-.builtin { color: #66ffcc; font-weight: bold; }
+.builtin { color: #00ccff; font-weight: bold; }
+.identifier { color: #80B8FF; font-weight: bold; }
 .err { background: rgba(255,0,0,0.18); border-bottom: 2px solid #ff4444; }
 .paren { color: #ffffff; }
 
@@ -592,7 +593,7 @@ result = result.replace(
     (m, name, op, value) => {
 
         return (
-            `<span class="var">${name}</span> ` +
+            `<span class="identifier">${name}</span> ` +
             `<span class="op">${op}</span> ` +
             `${value};`
         );
@@ -606,7 +607,7 @@ result = result.replace(
         if (m.includes("<span")) return m;
 
         return (
-            `<span class="kw">${cmd}</span> ` +
+            `<span class="identifier">${cmd}</span> ` +
             `<span class="var">${arg}</span>;`
         );
     }
