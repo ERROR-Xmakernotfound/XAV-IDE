@@ -176,6 +176,8 @@ button {
 .fn  { color: #ff6611; }
 .mo  { color: #ff5500; }
 .po  { color: #aa55ff; }
+.op  { color: #ffaa00; }
+.var  { color: #ff6600; }
 .bool { color: #ee2222; font-weight: bold; }
 .builtin { color: #66ffcc; font-weight: bold; }
 .err { background: rgba(255,0,0,0.18); border-bottom: 2px solid #ff4444; }
@@ -426,6 +428,7 @@ if (inString) {
             i += 2;
             continue;
         }
+        
 
         // =========================================================
         // START STRING
@@ -577,6 +580,30 @@ result = result.replace(
     /\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g,
     (m, obj, prop) => {
         return `<span class="po">${obj}.${prop}</span><span class="paren">(</span>`;
+    }
+);
+result = result.replace(
+    /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(=|append)\s*(.+?);/g,
+    (m, name, op, value) => {
+
+        return (
+            `<span class="var">${name}</span> ` +
+            `<span class="op">${op}</span> ` +
+            `${value};`
+        );
+    }
+);
+result = result.replace(
+    /\b([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_$#]*)\s*;/g,
+    (m, cmd, arg) => {
+
+        // avoid breaking already-highlighted HTML
+        if (m.includes("<span")) return m;
+
+        return (
+            `<span class="kw">${cmd}</span> ` +
+            `<span class="var">${arg}</span>;`
+        );
     }
 );
 result = result.replace(
