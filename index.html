@@ -589,8 +589,12 @@ result = result.replace(
         return `<span class="po">${obj}.${prop}</span><span class="paren">(</span>`;
     }
 );
+// =========================
+// ASSIGNMENTS / OPERATIONS
+// =========================
+
 result = result.replace(
-    /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(=|append)\s*(.+?);/g,
+    /\b([a-zA-Z_][a-zA-Z0-9_]*)[ \t]*(=|append)[ \t]*([^;\n]+);/g,
     (m, name, op, value) => {
 
         return (
@@ -600,11 +604,15 @@ result = result.replace(
         );
     }
 );
+
+// =========================
+// COMMAND ARGUMENT
+// =========================
+
 result = result.replace(
-    /\b([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_$#]*)\s*;/g,
+    /\b([a-zA-Z_][a-zA-Z0-9_]*)[ \t]+([a-zA-Z_][a-zA-Z0-9_$#]*)[ \t]*;/g,
     (m, cmd, arg) => {
 
-        // avoid breaking already-highlighted HTML
         if (m.includes("<span")) return m;
 
         return (
