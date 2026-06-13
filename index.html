@@ -589,38 +589,6 @@ result = result.replace(
         return `<span class="po">${obj}.${prop}</span><span class="paren">(</span>`;
     }
 );
-// =========================
-// ASSIGNMENTS / OPERATIONS
-// =========================
-
-result = result.replace(
-    /\b([a-zA-Z_][a-zA-Z0-9_]*)[ \t]*(=|append)[ \t]*([^;\n]+);/g,
-    (m, name, op, value) => {
-
-        return (
-            `<span class="identifier">${name}</span> ` +
-            `<span class="op">${op}</span> ` +
-            `${value};`
-        );
-    }
-);
-
-// =========================
-// COMMAND ARGUMENT
-// =========================
-
-result = result.replace(
-    /\b([a-zA-Z_][a-zA-Z0-9_]*)[ \t]+([a-zA-Z_][a-zA-Z0-9_$#]*)[ \t]*;/g,
-    (m, cmd, arg) => {
-
-        if (m.includes("<span")) return m;
-
-        return (
-            `<span class="identifier">${cmd}</span> ` +
-            `<span class="var">${arg}</span>;`
-        );
-    }
-);
 result = result.replace(
     /^( +)/gm,
     (match) => {
