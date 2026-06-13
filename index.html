@@ -183,6 +183,7 @@ button {
 .identifier { color: #80B8FF; font-weight: bold; }
 .err { background: rgba(255,0,0,0.18); border-bottom: 2px solid #ff4444; }
 .paren { color: #ffffff; }
+.esc { color: #ffaa00; text-decoration: underline; }
 
 .indent {color: #ffffff;}
 
@@ -393,16 +394,16 @@ if (inString) {
 
 	// XAV++ escapes
 	if (
-		ch === "/" &&
-		(next === '"' || next === "/")
-	) {
+    ch === "/" &&
+    (next === '"' || next === "/")
+) {
 
-		result +=
-			`<span class="str">${escapeHtml(ch + next)}</span>`;
+    result +=
+        `<span class="esc">${escapeHtml(ch + next)}</span>`;
 
-		i += 2;
-		continue;
-	}
+    i += 2;
+    continue;
+}
 
 	result += `<span class="str">${escapeHtml(ch)}</span>`;
 
