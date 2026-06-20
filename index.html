@@ -182,6 +182,7 @@ button {
 .builtin { color: #00ccff; font-weight: bold; }
 .identifier { color: #80B8FF; font-weight: bold; }
 .err { background: rgba(255,0,0,0.18); border-bottom: 2px solid #ff4444; }
+.type {color: #FF8B80; font-weight: bold;}
 .paren { color: #ffffff; }
 .esc { color: #ffaa00; text-decoration: underline; }
 
@@ -330,9 +331,12 @@ const isKeyword = (w) => getKeywordsActive().includes(w);
         else if (/^\$[a-zA-Z_][a-zA-Z0-9_]*$/.test(out)) {
             result += `<span class="builtin">${out}</span>`;
         }
-        else if (out === "true" || out === "false" || out === "null") {
-    result += `<span class="bool">${out}</span>`;
-}
+        else if (out === "true" || out === "false") {
+		result += `<span class="bool">${out}</span>`;
+		}
+		else if ((out === "str" || out === "null-literal" || out === "nulltype" || out === "struct" || out === "global" || out === "list" || out === "function" || out === "omnipresent" || out === "int" || out === "null")&& window.xavMode == "XAV--") {
+			result += `<span class="type">${out}</span>`;
+		}
 
         else if (isKeyword(out)) {
             result += `<span class="kw">${out}</span>`;
@@ -481,7 +485,7 @@ if (inString) {
             i++;
 
             while (i < text.length &&
-                   /[a-zA-Z0-9_$]/.test(text[i])) {
+                   /[a-zA-Z0-9_$-]/.test(text[i])) {
                 buffer += text[i];
                 i++;
             }
