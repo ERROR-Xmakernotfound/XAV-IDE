@@ -267,7 +267,7 @@ const KEYWORDS_XAVMM = [
     "if","elif","else","while","exec","clone",
     "func","loop","clone","return","break","continue",
     "local","global","omnipresent","output","link",
-    "inherit","mutate","struct","void"
+    "inherit","mutate","struct","void","null"
 ];
 const BUILTINS = [
     "$mouse_x",
@@ -334,7 +334,7 @@ const isKeyword = (w) => getKeywordsActive().includes(w);
         else if (out === "true" || out === "false") {
 		result += `<span class="bool">${out}</span>`;
 		}
-		else if ((out === "str" || out === "null-literal" || out === "nulltype" || out === "struct" || out === "global" || out === "list" || out === "function" || out === "omnipresent" || out === "int" || out === "null")&& window.xavMode == "XAV--") {
+		else if ((out === "str" || out === "null-literal" || out === "nulltype" || out === "struct" || out === "list" || out === "function" || out === "int")&& window.xavMode == "XAV--") {
 			result += `<span class="type">${out}</span>`;
 		}
 
